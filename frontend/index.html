@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="js/auth.js"></script>
+    <script>
+        // Verificação imediata de autenticação
+        if (!localStorage.getItem('authToken')) {
+            window.location.href = 'login.html';
+        }
+    </script>
+    <style>
+        /* Custom CSS for elements that can't be done with Tailwind */
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 70px;
+        }
+
+        .sidebar.collapsed .sidebar-text {
+            display: none;
+        }
+
+        .sidebar.collapsed .logo-text {
+            display: none;
+        }
+
+        .main-content {
+            transition: all 0.3s ease;
+        }
+
+        .chat-message.ai {
+            background-color: #f3f4f6;
+            border-radius: 0 1rem 1rem 1rem;
+        }
+
+        .chat-message.user {
+            background-color: #3b82f6;
+            color: white;
+            border-radius: 1rem 0 1rem 1rem;
+        }
+
+        .file-upload-preview {
+            height: 100px;
+            width: 100px;
+            object-fit: cover;
+            border-radius: 0.5rem;
+        }
+
+        #knowledgeBaseFiles {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50">
+    <!-- Loading screen while checking authentication -->
+    <div id="loading-screen" class="fixed inset-0 bg-white flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4">
+            </div>
+            <p class="text-gray-600">Verificando autenticação...</p>
+        </div>
+    </div>
+
+    <!-- Main app content (hidden initially) -->
+    <div id="app-content" class="hidden">
+        <div class="flex h-screen overflow-hidden">
+            <!-- Sidebar -->
+            <div class="sidebar bg-white text-gray-800 shadow-md w-64 flex flex-col">
+                <div class="p-4 flex items-center border-b">
+                    <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center text-white">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <span class="logo-text ml-2 font-bold text-lg">AI Agent</span>
+                </div>
+                <div class="flex-1 overflow-y-auto">
+                    <nav class="p-2">
+                        <ul>
+                            <li>
+                                <a href="#" onclick="loadSection('dashboard')"
+                                    class="flex items-center p-2 rounded-lg hover:bg-gray-100 active-nav">
+                                    <i class="fas fa-tachometer-alt w-6 text-gray-500"></i>
+                                    <span class="sidebar-text ml-3">Dashboard</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="loadSection('agent')"
+                                    class="flex items-center p-2 rounded-lg hover:bg-gray-100">
+                                    <i class="fas fa-cog w-6 text-gray-500"></i>
+                                    <span class="sidebar-text ml-3">Configuração</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="loadSection('integrations')"
+                                    class="flex items-center p-2 rounded-lg hover:bg-gray-100">
+                                    <i class="fas fa-plug w-6 text-gray-500"></i>
+                                    <span class="sidebar-text ml-3">Integrações</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="loadSection('conversations')"
+                                    class="flex items-center p-2 rounded-lg hover:bg-gray-100">
+                                    <i class="fas fa-comments w-6 text-gray-500"></i>
+                                    <span class="sidebar-text ml-3">Conversas</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="loadSection('reports')"
+                                    class="flex items-center p-2 rounded-lg hover:bg-gray-100">
+                                    <i class="fas fa-chart-bar w-6 text-gray-500"></i>
+                                    <span class="sidebar-text ml-3">Relatórios</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="loadSection('account')"
+                                    class="flex items-center p-2 rounded-lg hover:bg-gray-100">
+                                    <i class="fas fa-user w-6 text-gray-500"></i>
+                                    <span class="sidebar-text ml-3">Conta</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+                <div class="p-4 border-t">
+                    <button onclick="toggleSidebar()" class="flex items-center text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-chevron-left w-6"></i>
+                        <span class="sidebar-text ml-3">Recolher</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="main-content flex-1 flex flex-col overflow-hidden">
+                <!-- Header -->
+                <header class="bg-white shadow-sm z-10">
+                    <div class="flex items-center justify-between px-6 py-3">
+                        <div class="flex items-center">
+                            <button class="md:hidden mr-2 text-gray-500">
+                                <i class="fas fa-bars"></i>
+                            </button>
+                            <h1 class="text-xl font-semibold text-gray-800">Dashboard</h1>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="relative">
+                                <button class="text-gray-500 hover:text-gray-700">
+                                    <i class="fas fa-bell"></i>
+                                    <span class="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
+                                </button>
+                            </div>
+                            <div class="flex items-center relative">
+                                <div class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white"
+                                    id="user-avatar">
+                                    <span id="user-initials">--</span>
+                                </div>
+                                <span class="ml-2 text-sm font-medium" id="user-name">Carregando...</span>
+                                <button class="ml-2 text-gray-400 hover:text-gray-600" onclick="toggleUserMenu()">
+                                    <i class="fas fa-chevron-down"></i>
+                                </button>
+
+                                <!-- User Dropdown Menu -->
+                                <div id="user-menu"
+                                    class="hidden absolute right-0 top-full mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                                    <a href="#" onclick="loadSection('account')"
+                                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-user mr-2"></i>Minha Conta
+                                    </a>
+                                    <a href="#" onclick="loadSection('agent')"
+                                        class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                        <i class="fas fa-robot mr-2"></i>Configurações
+                                    </a>
+                                    <div class="border-t border-gray-100"></div>
+                                    <a href="#" onclick="logout()"
+                                        class="block px-4 py-2 text-sm text-red-600 hover:bg-gray-100">
+                                        <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Content Area -->
+                <main class="flex-1 overflow-y-auto p-6 bg-gray-50">
+                    <!-- Dynamic content will be loaded here -->
+                    <div id="content">
+                        <!-- Dashboard Section (default) -->
+                        <section id="dashboard-section">
+                            <div class="mb-6">
+                                <h2 class="text-2xl font-bold text-gray-800">Visão Geral</h2>
+                                <p class="text-gray-600">Monitoramento do seu agente de IA</p>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+                                <!-- Card 1 -->
+                                <div class="bg-white p-6 rounded-lg shadow">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-gray-500">Conversas hoje</p>
+                                            <h3 class="text-2xl font-bold">124</h3>
+                                        </div>
+                                        <div
+                                            class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-500">
+                                            <i class="fas fa-comment"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <span class="text-green-500 text-sm font-medium">+12%</span>
+                                        <span class="text-gray-500 text-sm ml-2">vs ontem</span>
+                                    </div>
+                                </div>
+
+                                <!-- Card 2 -->
+                                <div class="bg-white p-6 rounded-lg shadow">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-gray-500">Respostas automáticas</p>
+                                            <h3 class="text-2xl font-bold">89%</h3>
+                                        </div>
+                                        <div
+                                            class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center text-green-500">
+                                            <i class="fas fa-robot"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <span class="text-green-500 text-sm font-medium">+5%</span>
+                                        <span class="text-gray-500 text-sm ml-2">vs semana passada</span>
+                                    </div>
+                                </div>
+
+                                <!-- Card 3 -->
+                                <div class="bg-white p-6 rounded-lg shadow">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-gray-500">Tempo médio resposta</p>
+                                            <h3 class="text-2xl font-bold">12s</h3>
+                                        </div>
+                                        <div
+                                            class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center text-purple-500">
+                                            <i class="fas fa-stopwatch"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <span class="text-red-500 text-sm font-medium">-2s</span>
+                                        <span class="text-gray-500 text-sm ml-2">vs semana passada</span>
+                                    </div>
+                                </div>
+
+                                <!-- Card 4 -->
+                                <div class="bg-white p-6 rounded-lg shadow">
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-gray-500">Satisfação do cliente</p>
+                                            <h3 class="text-2xl font-bold">4.7</h3>
+                                        </div>
+                                        <div
+                                            class="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-500">
+                                            <i class="fas fa-star"></i>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4">
+                                        <span class="text-green-500 text-sm font-medium">+0.3</span>
+                                        <span class="text-gray-500 text-sm ml-2">vs mês passado</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <!-- Recent Activity -->
+                                <div class="bg-white p-6 rounded-lg shadow">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <h3 class="text-lg font-semibold">Atividade Recente</h3>
+                                        <button class="text-blue-500 text-sm font-medium">Ver tudo</button>
+                                    </div>
+                                    <div class="space-y-4">
+                                        <div class="flex items-start">
+                                            <div
+                                                class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 mr-3">
+                                                <i class="fas fa-comment"></i>
+                                            </div>
+                                            <div>
+                                                <p class="font-medium">Nova conversa iniciada</p>
+                                                <p class="text-gray-500 text-sm">Cliente: Maria Silva</p>
+                                                <p class="text-gray-500 text-sm">2 minutos atrás</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-start">
+                                            <div
+                                                class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-500 mr-3">
+                                                <i class="fas fa-check"></i>
+                                            </div>
+                                            <div>
+                                                <p class="font-medium">Conversa resolvida</p>
+                                                <p class="text-gray-500 text-sm">Ticket #4567</p>
+                                                <p class="text-gray-500 text-sm">15 minutos atrás</p>
+                                            </div>
+                                        </div>
+                                        <div class="flex items-start">
+                                            <div
+                                                class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-500 mr-3">
+                                                <i class="fas fa-plug"></i>
+                                            </div>
+                                            <div>
+                                                <p class="font-medium">WhatsApp conectado</p>
+                                                <p class="text-gray-500 text-sm">Integração concluída</p>
+                                                <p class="text-gray-500 text-sm">1 hora atrás</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Quick Actions -->
+                                <div class="bg-white p-6 rounded-lg shadow">
+                                    <h3 class="text-lg font-semibold mb-4">Ações Rápidas</h3>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <button onclick="loadSection('agent')"
+                                            class="p-4 bg-blue-50 rounded-lg flex flex-col items-center justify-center hover:bg-blue-100 transition">
+                                            <div
+                                                class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-500 mb-2">
+                                                <i class="fas fa-cog"></i>
+                                            </div>
+                                            <span class="text-sm font-medium">Configurar Agente</span>
+                                        </button>
+                                        <button onclick="loadSection('integrations')"
+                                            class="p-4 bg-green-50 rounded-lg flex flex-col items-center justify-center hover:bg-green-100 transition">
+                                            <div
+                                                class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-500 mb-2">
+                                                <i class="fas fa-plug"></i>
+                                            </div>
+                                            <span class="text-sm font-medium">Adicionar Integração</span>
+                                        </button>
+                                        <button onclick="loadSection('conversations')"
+                                            class="p-4 bg-purple-50 rounded-lg flex flex-col items-center justify-center hover:bg-purple-100 transition">
+                                            <div
+                                                class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-500 mb-2">
+                                                <i class="fas fa-comments"></i>
+                                            </div>
+                                            <span class="text-sm font-medium">Ver Conversas</span>
+                                        </button>
+                                        <button onclick="loadSection('reports')"
+                                            class="p-4 bg-yellow-50 rounded-lg flex flex-col items-center justify-center hover:bg-yellow-100 transition">
+                                            <div
+                                                class="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-500 mb-2">
+                                                <i class="fas fa-chart-bar"></i>
+                                            </div>
+                                            <span class="text-sm font-medium">Gerar Relatório</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Agent Configuration Section -->
+                        <section id="agent-section" class="hidden">
+                            <div class="mb-6">
+                                <h2 class="text-2xl font-bold text-gray-800">Configuração do Agente</h2>
+                                <p class="text-gray-600">Personalize o comportamento do seu agente de IA</p>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <form id="agent-config-form">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <!-- Basic Info -->
+                                        <div>
+                                            <h3 class="text-lg font-semibold mb-4">Informações Básicas</h3>
+                                            <div class="mb-4">
+                                                <label for="agent-name"
+                                                    class="block text-sm font-medium text-gray-700 mb-1">Nome do
+                                                    Agente</label>
+                                                <input type="text" id="agent-name"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    value="Assistente Virtual">
+                                            </div>
+                                            <div class="mb-4">
+                                                <label
+                                                    class="block text-sm font-medium text-gray-700 mb-1">Avatar</label>
+                                                <div class="flex items-center">
+                                                    <div class="mr-4">
+                                                        <img id="avatar-preview" src="https://via.placeholder.com/100"
+                                                            alt="Avatar Preview" class="file-upload-preview">
+                                                    </div>
+                                                    <div>
+                                                        <input type="file" id="avatar-upload" class="hidden"
+                                                            accept="image/*">
+                                                        <button type="button"
+                                                            onclick="document.getElementById('avatar-upload').click()"
+                                                            class="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
+                                                            Alterar Avatar
+                                                        </button>
+                                                        <p class="text-xs text-gray-500 mt-1">Recomendado: 200x200px,
+                                                            PNG ou
+                                                            JPG</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="mb-4">
+                                                <label for="agent-language"
+                                                    class="block text-sm font-medium text-gray-700 mb-1">Idioma</label>
+                                                <select id="agent-language"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                    <option value="pt">Português</option>
+                                                    <option value="en">Inglês</option>
+                                                    <option value="es">Espanhol</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <!-- Personality -->
+                                        <div>
+                                            <h3 class="text-lg font-semibold mb-4">Personalidade</h3>
+                                            <div class="mb-4">
+                                                <label for="agent-mood"
+                                                    class="block text-sm font-medium text-gray-700 mb-1">Humor</label>
+                                                <select id="agent-mood"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                    <option value="neutral">Neutro</option>
+                                                    <option value="friendly">Amigável</option>
+                                                    <option value="professional">Profissional</option>
+                                                    <option value="enthusiastic">Entusiasmado</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-4">
+                                                <label for="agent-formality"
+                                                    class="block text-sm font-medium text-gray-700 mb-1">Formalidade</label>
+                                                <select id="agent-formality"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                    <option value="neutral">Neutro</option>
+                                                    <option value="formal">Formal</option>
+                                                    <option value="informal">Informal</option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-4">
+                                                <label
+                                                    class="block text-sm font-medium text-gray-700 mb-1">Emojis</label>
+                                                <div class="flex items-center">
+                                                    <label class="inline-flex items-center">
+                                                        <input type="checkbox"
+                                                            class="rounded text-blue-500 focus:ring-blue-500" checked>
+                                                        <span class="ml-2">Permitir emojis nas respostas</span>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-6">
+                                        <h3 class="text-lg font-semibold mb-4">Comportamento</h3>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div class="mb-4">
+                                                <label for="response-speed"
+                                                    class="block text-sm font-medium text-gray-700 mb-1">Velocidade de
+                                                    Resposta</label>
+                                                <select id="response-speed"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                    <option value="fast">Rápida (prioriza velocidade)</option>
+                                                    <option value="balanced" selected>Balanceada</option>
+                                                    <option value="detailed">Detalhada (respostas mais completas)
+                                                    </option>
+                                                </select>
+                                            </div>
+                                            <div class="mb-4">
+                                                <label for="agent-tone"
+                                                    class="block text-sm font-medium text-gray-700 mb-1">Tom de
+                                                    Voz</label>
+                                                <select id="agent-tone"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                    <option value="neutral">Neutro</option>
+                                                    <option value="positive">Positivo</option>
+                                                    <option value="supportive">Apoiador</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-6">
+                                        <h3 class="text-lg font-semibold mb-4">Mensagens Padrão</h3>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div class="mb-4">
+                                                <label for="opening-phrase"
+                                                    class="block text-sm font-medium text-gray-700 mb-1">Frase de
+                                                    Abertura</label>
+                                                <textarea id="opening-phrase" rows="3"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">Olá! Sou o assistente virtual. Como posso te ajudar hoje?</textarea>
+                                            </div>
+                                            <div class="mb-4">
+                                                <label for="closing-phrase"
+                                                    class="block text-sm font-medium text-gray-700 mb-1">Frase de
+                                                    Encerramento</label>
+                                                <textarea id="closing-phrase" rows="3"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">Foi um prazer ajudar! Se precisar de mais alguma coisa, estou à disposição.</textarea>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-6">
+                                        <h3 class="text-lg font-semibold mb-4">Base de Conhecimento</h3>
+                                        <div class="mb-4">
+                                            <label
+                                                class="block text-sm font-medium text-gray-700 mb-1">Documentos</label>
+                                            <div class="border-2 border-dashed border-gray-300 rounded-md p-4">
+                                                <div class="flex flex-col items-center justify-center">
+                                                    <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                                    <p class="text-sm text-gray-600 mb-2">Arraste e solte arquivos aqui
+                                                        ou
+                                                    </p>
+                                                    <input type="file" id="knowledge-base-upload" class="hidden"
+                                                        multiple>
+                                                    <button type="button"
+                                                        onclick="document.getElementById('knowledge-base-upload').click()"
+                                                        class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                                                        Selecione Arquivos
+                                                    </button>
+                                                    <p class="text-xs text-gray-500 mt-2">Formatos suportados: PDF,
+                                                        DOCX,
+                                                        TXT, CSV</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Arquivos
+                                                Carregados</label>
+                                            <div id="knowledgeBaseFiles" class="bg-gray-50 p-3 rounded-md">
+                                                <div class="flex items-center justify-between p-2 border-b">
+                                                    <div class="flex items-center">
+                                                        <i class="fas fa-file-pdf text-red-500 mr-2"></i>
+                                                        <span>manual-do-produto.pdf</span>
+                                                    </div>
+                                                    <button class="text-red-500 hover:text-red-700">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="flex items-center justify-between p-2 border-b">
+                                                    <div class="flex items-center">
+                                                        <i class="fas fa-file-word text-blue-500 mr-2"></i>
+                                                        <span>perguntas-frequentes.docx</span>
+                                                    </div>
+                                                    <button class="text-red-500 hover:text-red-700">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                                <div class="flex items-center justify-between p-2">
+                                                    <div class="flex items-center">
+                                                        <i class="fas fa-file-csv text-green-500 mr-2"></i>
+                                                        <span>produtos.csv</span>
+                                                    </div>
+                                                    <button class="text-red-500 hover:text-red-700">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-8 flex justify-end">
+                                        <button type="button"
+                                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 mr-2">
+                                            Cancelar
+                                        </button>
+                                        <button type="button" onclick="saveAgentConfig()"
+                                            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                                            Salvar Configurações
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </section>
+
+                        <!-- Integrations Section -->
+                        <section id="integrations-section" class="hidden">
+                            <div class="mb-6">
+                                <h2 class="text-2xl font-bold text-gray-800">Integrações</h2>
+                                <p class="text-gray-600">Conecte seu agente a outros serviços</p>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <div class="mb-8">
+                                    <h3 class="text-lg font-semibold mb-4">Webhook Universal</h3>
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">URL do
+                                            Webhook</label>
+                                        <div class="flex">
+                                            <input type="text" id="webhook-url"
+                                                class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                value="https://api.aiagent.com/webhook/abc123" readonly>
+                                            <button onclick="copyWebhookUrl()"
+                                                class="px-4 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-md hover:bg-gray-200">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Esta URL deve ser configurada no serviço
+                                            externo para receber mensagens</p>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Webhook de
+                                            Saída</label>
+                                        <input type="text"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            placeholder="https://sua-api.com/webhook">
+                                        <p class="text-xs text-gray-500 mt-1">Configure para enviar mensagens para seu
+                                            sistema</p>
+                                    </div>
+                                    <div>
+                                        <button onclick="testWebhookConnection()"
+                                            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                                            Testar Conexão
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="mb-8">
+                                    <h3 class="text-lg font-semibold mb-4">Conectores Prontos</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <!-- WhatsApp -->
+                                        <div class="border rounded-md p-4">
+                                            <div class="flex items-center mb-3">
+                                                <div
+                                                    class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-500 mr-3">
+                                                    <i class="fab fa-whatsapp"></i>
+                                                </div>
+                                                <h4 class="font-medium">WhatsApp</h4>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">Token
+                                                    API</label>
+                                                <input type="text"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="Insira seu token do WhatsApp">
+                                            </div>
+                                            <div class="flex justify-end">
+                                                <button onclick="connectService('whatsapp')"
+                                                    class="px-3 py-1 bg-green-500 text-white rounded-md text-sm hover:bg-green-600">
+                                                    Conectar
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Telegram -->
+                                        <div class="border rounded-md p-4">
+                                            <div class="flex items-center mb-3">
+                                                <div
+                                                    class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-500 mr-3">
+                                                    <i class="fab fa-telegram"></i>
+                                                </div>
+                                                <h4 class="font-medium">Telegram</h4>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">Token do
+                                                    Bot</label>
+                                                <input type="text"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="Insira seu token do Telegram">
+                                            </div>
+                                            <div class="flex justify-end">
+                                                <button onclick="connectService('telegram')"
+                                                    class="px-3 py-1 bg-blue-500 text-white rounded-md text-sm hover:bg-blue-600">
+                                                    Conectar
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Twilio -->
+                                        <div class="border rounded-md p-4">
+                                            <div class="flex items-center mb-3">
+                                                <div
+                                                    class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center text-purple-500 mr-3">
+                                                    <i class="fas fa-sms"></i>
+                                                </div>
+                                                <h4 class="font-medium">Twilio (SMS)</h4>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">Account
+                                                    SID</label>
+                                                <input type="text"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="Insira seu SID">
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="block text-sm font-medium text-gray-700 mb-1">Auth
+                                                    Token</label>
+                                                <input type="text"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                    placeholder="Insira seu token">
+                                            </div>
+                                            <div class="flex justify-end">
+                                                <button onclick="connectService('twilio')"
+                                                    class="px-3 py-1 bg-purple-500 text-white rounded-md text-sm hover:bg-purple-600">
+                                                    Conectar
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h3 class="text-lg font-semibold mb-4">API Pública</h3>
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Chave da API</label>
+                                        <div class="flex">
+                                            <input type="text" id="api-key"
+                                                class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                value="sk_test_abc123xyz456" readonly>
+                                            <button onclick="copyApiKey()"
+                                                class="px-4 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-md hover:bg-gray-200">
+                                                <i class="fas fa-copy"></i>
+                                            </button>
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Mantenha esta chave em segredo. <a
+                                                href="#" class="text-blue-500">Gerar nova chave</a></p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Exemplo de
+                                            Uso</label>
+                                        <div
+                                            class="bg-gray-800 text-gray-100 p-4 rounded-md font-mono text-sm overflow-x-auto">
+                                            <span class="text-green-400">curl</span> -X POST \<br>
+                                            -H <span class="text-yellow-300">"Authorization: Bearer
+                                                sk_test_abc123xyz456"</span> \<br>
+                                            -H <span class="text-yellow-300">"Content-Type: application/json"</span>
+                                            \<br>
+                                            -d <span class="text-yellow-300">'{"message": "Olá, como posso ajudar?",
+                                                "channel": "web"}'</span> \<br>
+                                            <span class="text-blue-400">https://api.aiagent.com/v1/messages</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Conversations Section -->
+                        <section id="conversations-section" class="hidden">
+                            <div class="mb-6">
+                                <h2 class="text-2xl font-bold text-gray-800">Conversas</h2>
+                                <p class="text-gray-600">Gerencie as interações com seus clientes</p>
+                            </div>
+
+                            <div class="bg-white rounded-lg shadow overflow-hidden">
+                                <div class="flex flex-col md:flex-row h-[600px]">
+                                    <!-- Conversation List -->
+                                    <div class="w-full md:w-1/3 border-r overflow-y-auto">
+                                        <div class="p-4 border-b">
+                                            <div class="relative">
+                                                <input type="text" placeholder="Buscar conversas..."
+                                                    class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+                                            </div>
+                                        </div>
+                                        <div class="divide-y">
+                                            <!-- Conversation Item 1 -->
+                                            <div
+                                                class="p-4 hover:bg-gray-50 cursor-pointer border-l-4 border-blue-500 bg-blue-50">
+                                                <div class="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 class="font-medium">Maria Silva</h4>
+                                                        <p class="text-sm text-gray-600">Problema com minha conta</p>
+                                                    </div>
+                                                    <span class="text-xs text-gray-500">2 min</span>
+                                                </div>
+                                                <div class="mt-2 flex items-center">
+                                                    <span
+                                                        class="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                                                    <span class="text-xs text-gray-500">Online</span>
+                                                </div>
+                                            </div>
+                                            <!-- Conversation Item 2 -->
+                                            <div class="p-4 hover:bg-gray-50 cursor-pointer">
+                                                <div class="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 class="font-medium">João Oliveira</h4>
+                                                        <p class="text-sm text-gray-600">Dúvida sobre entrega</p>
+                                                    </div>
+                                                    <span class="text-xs text-gray-500">15 min</span>
+                                                </div>
+                                                <div class="mt-2 flex items-center">
+                                                    <span
+                                                        class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-2"></span>
+                                                    <span class="text-xs text-gray-500">Offline</span>
+                                                </div>
+                                            </div>
+                                            <!-- Conversation Item 3 -->
+                                            <div class="p-4 hover:bg-gray-50 cursor-pointer">
+                                                <div class="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 class="font-medium">Empresa XYZ</h4>
+                                                        <p class="text-sm text-gray-600">Cotação para serviços</p>
+                                                    </div>
+                                                    <span class="text-xs text-gray-500">1 h</span>
+                                                </div>
+                                                <div class="mt-2 flex items-center">
+                                                    <span
+                                                        class="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                                                    <span class="text-xs text-gray-500">Online</span>
+                                                </div>
+                                            </div>
+                                            <!-- Conversation Item 4 -->
+                                            <div class="p-4 hover:bg-gray-50 cursor-pointer">
+                                                <div class="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 class="font-medium">Ana Souza</h4>
+                                                        <p class="text-sm text-gray-600">Reclamação sobre produto</p>
+                                                    </div>
+                                                    <span class="text-xs text-gray-500">3 h</span>
+                                                </div>
+                                                <div class="mt-2 flex items-center">
+                                                    <span
+                                                        class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-2"></span>
+                                                    <span class="text-xs text-gray-500">Offline</span>
+                                                </div>
+                                            </div>
+                                            <!-- Conversation Item 5 -->
+                                            <div class="p-4 hover:bg-gray-50 cursor-pointer">
+                                                <div class="flex justify-between items-start">
+                                                    <div>
+                                                        <h4 class="font-medium">Carlos Mendes</h4>
+                                                        <p class="text-sm text-gray-600">Suporte técnico urgente</p>
+                                                    </div>
+                                                    <span class="text-xs text-gray-500">5 h</span>
+                                                </div>
+                                                <div class="mt-2 flex items-center">
+                                                    <span
+                                                        class="inline-block w-2 h-2 rounded-full bg-gray-500 mr-2"></span>
+                                                    <span class="text-xs text-gray-500">Offline</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Chat Area -->
+                                    <div class="w-full md:w-2/3 flex flex-col">
+                                        <!-- Chat Header -->
+                                        <div class="p-4 border-b flex items-center justify-between">
+                                            <div class="flex items-center">
+                                                <div
+                                                    class="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white mr-3">
+                                                    <span>MS</span>
+                                                </div>
+                                                <div>
+                                                    <h4 class="font-medium">Maria Silva</h4>
+                                                    <div class="flex items-center">
+                                                        <span
+                                                            class="inline-block w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                                                        <span class="text-xs text-gray-500">Online</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center">
+                                                <div class="mr-4">
+                                                    <label class="inline-flex items-center">
+                                                        <input type="checkbox"
+                                                            class="rounded text-blue-500 focus:ring-blue-500" checked>
+                                                        <span class="ml-2 text-sm">IA Ativada</span>
+                                                    </label>
+                                                </div>
+                                                <button class="p-2 text-gray-500 hover:text-gray-700">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Messages -->
+                                        <div class="flex-1 p-4 overflow-y-auto bg-gray-50">
+                                            <div class="space-y-4">
+                                                <!-- AI Message -->
+                                                <div class="flex">
+                                                    <div class="flex-shrink-0 mr-3">
+                                                        <div
+                                                            class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                                                            <i class="fas fa-robot"></i>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div class="chat-message ai p-3 max-w-xs md:max-w-md">
+                                                            <p>Olá Maria! Sou o assistente virtual. Como posso te ajudar
+                                                                hoje?</p>
+                                                        </div>
+                                                        <span class="text-xs text-gray-500 mt-1">2 minutos atrás</span>
+                                                    </div>
+                                                </div>
+
+                                                <!-- User Message -->
+                                                <div class="flex justify-end">
+                                                    <div>
+                                                        <div class="chat-message user p-3 max-w-xs md:max-w-md">
+                                                            <p>Olá, estou com problemas para acessar minha conta.</p>
+                                                        </div>
+                                                        <span class="text-xs text-gray-500 mt-1 text-right">1 minuto
+                                                            atrás</span>
+                                                    </div>
+                                                    <div class="flex-shrink-0 ml-3">
+                                                        <div
+                                                            class="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center text-gray-600">
+                                                            <span>MS</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- AI Message -->
+                                                <div class="flex">
+                                                    <div class="flex-shrink-0 mr-3">
+                                                        <div
+                                                            class="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white">
+                                                            <i class="fas fa-robot"></i>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div class="chat-message ai p-3 max-w-xs md:max-w-md">
+                                                            <p>Entendi. Vou te ajudar com isso. Você poderia me informar
+                                                                o
+                                                                e-mail associado à sua conta?</p>
+                                                        </div>
+                                                        <span class="text-xs text-gray-500 mt-1">Agora mesmo</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Message Input -->
+                                        <div class="p-4 border-t">
+                                            <div class="flex items-center">
+                                                <button class="p-2 text-gray-500 hover:text-gray-700 mr-2">
+                                                    <i class="fas fa-paperclip"></i>
+                                                </button>
+                                                <input type="text" placeholder="Digite sua mensagem..."
+                                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                <button
+                                                    class="px-4 py-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600">
+                                                    <i class="fas fa-paper-plane"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Reports Section -->
+                        <section id="reports-section" class="hidden">
+                            <div class="mb-6">
+                                <h2 class="text-2xl font-bold text-gray-800">Relatórios</h2>
+                                <p class="text-gray-600">Analise o desempenho do seu agente</p>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-lg shadow mb-6">
+                                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+                                    <h3 class="text-lg font-semibold">Métricas de Conversação</h3>
+                                    <div class="mt-2 md:mt-0">
+                                        <select
+                                            class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option>Últimos 7 dias</option>
+                                            <option>Últimos 30 dias</option>
+                                            <option>Últimos 90 dias</option>
+                                            <option>Personalizado</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="h-80">
+                                    <canvas id="conversationChart"></canvas>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="bg-white p-6 rounded-lg shadow">
+                                    <h3 class="text-lg font-semibold mb-4">Tópicos Mais Frequentes</h3>
+                                    <div class="space-y-3">
+                                        <div>
+                                            <div class="flex justify-between mb-1">
+                                                <span class="text-sm font-medium">Problemas de login</span>
+                                                <span class="text-sm text-gray-500">32%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-blue-500 h-2 rounded-full" style="width: 32%"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between mb-1">
+                                                <span class="text-sm font-medium">Dúvidas sobre produtos</span>
+                                                <span class="text-sm text-gray-500">25%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-green-500 h-2 rounded-full" style="width: 25%"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between mb-1">
+                                                <span class="text-sm font-medium">Status de pedidos</span>
+                                                <span class="text-sm text-gray-500">18%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-yellow-500 h-2 rounded-full" style="width: 18%"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between mb-1">
+                                                <span class="text-sm font-medium">Reclamações</span>
+                                                <span class="text-sm text-gray-500">15%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-red-500 h-2 rounded-full" style="width: 15%"></div>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="flex justify-between mb-1">
+                                                <span class="text-sm font-medium">Outros</span>
+                                                <span class="text-sm text-gray-500">10%</span>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                                <div class="bg-purple-500 h-2 rounded-full" style="width: 10%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-6 rounded-lg shadow">
+                                    <h3 class="text-lg font-semibold mb-4">Satisfação do Cliente</h3>
+                                    <div class="h-64">
+                                        <canvas id="satisfactionChart"></canvas>
+                                    </div>
+                                    <div class="mt-4 text-center">
+                                        <p class="text-lg font-medium">Pontuação Média: <span
+                                                class="text-blue-500">4.7</span>/5</p>
+                                        <div class="flex justify-center mt-2">
+                                            <i class="fas fa-star text-yellow-400"></i>
+                                            <i class="fas fa-star text-yellow-400"></i>
+                                            <i class="fas fa-star text-yellow-400"></i>
+                                            <i class="fas fa-star text-yellow-400"></i>
+                                            <i class="fas fa-star-half-alt text-yellow-400"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Account Section -->
+                        <section id="account-section" class="hidden">
+                            <div class="mb-6">
+                                <h2 class="text-2xl font-bold text-gray-800">Configurações da Conta</h2>
+                                <p class="text-gray-600">Gerencie suas informações pessoais e preferências</p>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-lg shadow mb-6">
+                                <h3 class="text-lg font-semibold mb-4">Informações Pessoais</h3>
+                                <form>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div class="mb-4">
+                                            <label for="account-name"
+                                                class="block text-sm font-medium text-gray-700 mb-1">Nome
+                                                Completo</label>
+                                            <input type="text" id="account-name"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                value="John Doe">
+                                        </div>
+                                        <div class="mb-4">
+                                            <label for="account-email"
+                                                class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+                                            <input type="email" id="account-email"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                value="john.doe@example.com">
+                                        </div>
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Foto do
+                                            Perfil</label>
+                                        <div class="flex items-center">
+                                            <div class="mr-4">
+                                                <img src="https://via.placeholder.com/100" alt="Profile Preview"
+                                                    class="file-upload-preview">
+                                            </div>
+                                            <div>
+                                                <input type="file" id="profile-upload" class="hidden" accept="image/*">
+                                                <button type="button"
+                                                    onclick="document.getElementById('profile-upload').click()"
+                                                    class="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200">
+                                                    Alterar Foto
+                                                </button>
+                                                <button type="button"
+                                                    class="px-3 py-2 text-gray-700 hover:text-gray-900 ml-2">
+                                                    Remover
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex justify-end">
+                                        <button type="button"
+                                            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                                            Salvar Alterações
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-lg shadow mb-6">
+                                <h3 class="text-lg font-semibold mb-4">Alterar Senha</h3>
+                                <form>
+                                    <div class="mb-4">
+                                        <label for="current-password"
+                                            class="block text-sm font-medium text-gray-700 mb-1">Senha Atual</label>
+                                        <input type="password" id="current-password"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="new-password"
+                                            class="block text-sm font-medium text-gray-700 mb-1">Nova
+                                            Senha</label>
+                                        <input type="password" id="new-password"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <div class="mb-4">
+                                        <label for="confirm-password"
+                                            class="block text-sm font-medium text-gray-700 mb-1">Confirmar Nova
+                                            Senha</label>
+                                        <input type="password" id="confirm-password"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <div class="flex justify-end">
+                                        <button type="button" onclick="changePassword()"
+                                            class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                                            Alterar Senha
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-lg shadow">
+                                <h3 class="text-lg font-semibold mb-4">Plano de Assinatura</h3>
+                                <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+                                    <div>
+                                        <p class="font-medium">Plano Atual: <span
+                                                class="text-blue-500">Profissional</span>
+                                        </p>
+                                        <p class="text-sm text-gray-600">Próxima cobrança: R$ 99,90 em 15/07/2023</p>
+                                    </div>
+                                    <button
+                                        class="px-4 py-2 border border-blue-500 text-blue-500 rounded-md hover:bg-blue-50 mt-2 md:mt-0">
+                                        Alterar Plano
+                                    </button>
+                                </div>
+                                <div class="border-t pt-4">
+                                    <h4 class="font-medium mb-2">Recursos do Plano</h4>
+                                    <ul class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        <li class="flex items-center">
+                                            <i class="fas fa-check text-green-500 mr-2"></i>
+                                            <span>Até 5 agentes simultâneos</span>
+                                        </li>
+                                        <li class="flex items-center">
+                                            <i class="fas fa-check text-green-500 mr-2"></i>
+                                            <span>10.000 mensagens/mês</span>
+                                        </li>
+                                        <li class="flex items-center">
+                                            <i class="fas fa-check text-green-500 mr-2"></i>
+                                            <span>Integrações ilimitadas</span>
+                                        </li>
+                                        <li class="flex items-center">
+                                            <i class="fas fa-check text-green-500 mr-2"></i>
+                                            <span>Suporte prioritário</span>
+                                        </li>
+                                        <li class="flex items-center">
+                                            <i class="fas fa-check text-green-500 mr-2"></i>
+                                            <span>Relatórios avançados</span>
+                                        </li>
+                                        <li class="flex items-center">
+                                            <i class="fas fa-check text-green-500 mr-2"></i>
+                                            <span>API completa</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- Toast Notification -->
+        <div id="toast" class="fixed bottom-4 right-4 hidden">
+            <div class="bg-green-500 text-white px-4 py-2 rounded-md shadow-lg flex items-center">
+                <i class="fas fa-check-circle mr-2"></i>
+                <span id="toast-message">Operação realizada com sucesso!</span>
+            </div>
+        </div>
+
+        <script>
+            // Initialize charts when the page loads
+            document.addEventListener('DOMContentLoaded', function () {
+                // Conversation Chart
+                const conversationCtx = document.getElementById('conversationChart').getContext('2d');
+                const conversationChart = new Chart(conversationCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['1 Jul', '2 Jul', '3 Jul', '4 Jul', '5 Jul', '6 Jul', '7 Jul'],
+                        datasets: [
+                            {
+                                label: 'Conversas',
+                                data: [45, 52, 60, 58, 70, 65, 80],
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'rgba(59, 130, 246, 0.05)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.3
+                            },
+                            {
+                                label: 'Respostas Automáticas',
+                                data: [35, 42, 48, 50, 58, 55, 70],
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.05)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+
+                // Satisfaction Chart
+                const satisfactionCtx = document.getElementById('satisfactionChart').getContext('2d');
+                const satisfactionChart = new Chart(satisfactionCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['5 Estrelas', '4 Estrelas', '3 Estrelas', '2 Estrelas', '1 Estrela'],
+                        datasets: [{
+                            data: [65, 20, 10, 3, 2],
+                            backgroundColor: [
+                                '#10b981',
+                                '#3b82f6',
+                                '#f59e0b',
+                                '#f97316',
+                                '#ef4444'
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                            }
+                        }
+                    }
+                });
+
+                // Handle avatar upload preview
+                document.getElementById('avatar-upload').addEventListener('change', function (e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function (event) {
+                            document.getElementById('avatar-preview').src = event.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+
+                // Handle profile upload preview
+                document.getElementById('profile-upload').addEventListener('change', function (e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function (event) {
+                            document.querySelector('.file-upload-preview').src = event.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            });
+
+            // SPA Navigation
+            function loadSection(section) {
+                // Hide all sections
+                document.querySelectorAll('section').forEach(s => {
+                    s.classList.add('hidden');
+                });
+
+                // Show selected section
+                document.getElementById(`${section}-section`).classList.remove('hidden');
+
+                // Update active nav item
+                document.querySelectorAll('nav a').forEach(link => {
+                    link.classList.remove('active-nav');
+                    link.classList.remove('bg-gray-100');
+                });
+
+                // Find and activate the clicked nav item
+                const navItems = document.querySelectorAll('nav a');
+                for (let i = 0; i < navItems.length; i++) {
+                    if (navItems[i].getAttribute('onclick').includes(section)) {
+                        navItems[i].classList.add('bg-gray-100');
+                        break;
+                    }
+                }
+
+                // Update header title
+                const titles = {
+                    'dashboard': 'Dashboard',
+                    'agent': 'Configuração do Agente',
+                    'integrations': 'Integrações',
+                    'conversations': 'Conversas',
+                    'reports': 'Relatórios',
+                    'account': 'Configurações da Conta'
+                };
+                document.querySelector('header h1').textContent = titles[section];
+            }
+
+            // Toggle sidebar
+            function toggleSidebar() {
+                document.querySelector('.sidebar').classList.toggle('collapsed');
+                document.querySelector('.main-content').classList.toggle('ml-64');
+                document.querySelector('.main-content').classList.toggle('ml-20');
+            }
+
+            // Show toast notification
+            function showToast(message, isSuccess = true) {
+                const toast = document.getElementById('toast');
+                const toastMessage = document.getElementById('toast-message');
+
+                toastMessage.textContent = message;
+                toast.className = `fixed bottom-4 right-4 px-4 py-2 rounded-md shadow-lg flex items-center ${isSuccess ? 'bg-green-500' : 'bg-red-500'} text-white`;
+
+                toast.classList.remove('hidden');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 3000);
+            }
+
+            // API Configuration
+            const API_BASE_URL = 'http://localhost:3001/api';
+
+            // Get auth token
+            function getAuthToken() {
+                return localStorage.getItem('authToken');
+            }
+
+            // Set auth token
+            function setAuthToken(token) {
+                localStorage.setItem('authToken', token);
+            }
+
+            // API request helper
+            async function apiRequest(endpoint, options = {}) {
+                const token = getAuthToken();
+                const headers = {
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` }),
+                    ...options.headers
+                };
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                        ...options,
+                        headers
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Erro na requisição');
+                    }
+
+                    return await response.json();
+                } catch (error) {
+                    console.error('API Error:', error);
+                    throw error;
+                }
+            }
+
+            // Agent configuration form submission
+            async function saveAgentConfig() {
+                try {
+                    const formData = {
+                        name: document.getElementById('agent-name')?.value || '',
+                        language: document.getElementById('agent-language')?.value || 'pt',
+                        mood: document.getElementById('agent-mood')?.value || 'friendly',
+                        formality: document.getElementById('agent-formality')?.value || 'informal',
+                        allow_emojis: document.getElementById('allow-emojis')?.checked || true,
+                        response_speed: document.getElementById('response-speed')?.value || 'balanced',
+                        tone: document.getElementById('agent-tone')?.value || 'supportive',
+                        opening_phrase: document.getElementById('opening-phrase')?.value || '',
+                        closing_phrase: document.getElementById('closing-phrase')?.value || '',
+                        outbound_webhook_url: document.getElementById('outbound-webhook')?.value || ''
+                    };
+
+                    const result = await apiRequest('/agents', {
+                        method: 'PUT',
+                        body: JSON.stringify(formData)
+                    });
+
+                    showToast('Configurações do agente salvas com sucesso!');
+                } catch (error) {
+                    showToast('Erro ao salvar configurações: ' + error.message, false);
+                }
+            }
+
+            // Load agent configuration
+            async function loadAgentConfig() {
+                try {
+                    const result = await apiRequest('/agents');
+                    const agent = result.agent;
+
+                    // Populate form fields
+                    if (document.getElementById('agent-name')) {
+                        document.getElementById('agent-name').value = agent.name || '';
+                    }
+                    if (document.getElementById('agent-language')) {
+                        document.getElementById('agent-language').value = agent.language || 'pt';
+                    }
+                    if (document.getElementById('agent-mood')) {
+                        document.getElementById('agent-mood').value = agent.mood || 'friendly';
+                    }
+                    if (document.getElementById('agent-formality')) {
+                        document.getElementById('agent-formality').value = agent.formality || 'informal';
+                    }
+                    if (document.getElementById('allow-emojis')) {
+                        document.getElementById('allow-emojis').checked = agent.allow_emojis !== false;
+                    }
+                    if (document.getElementById('response-speed')) {
+                        document.getElementById('response-speed').value = agent.response_speed || 'balanced';
+                    }
+                    if (document.getElementById('agent-tone')) {
+                        document.getElementById('agent-tone').value = agent.tone || 'supportive';
+                    }
+                    if (document.getElementById('opening-phrase')) {
+                        document.getElementById('opening-phrase').value = agent.opening_phrase || '';
+                    }
+                    if (document.getElementById('closing-phrase')) {
+                        document.getElementById('closing-phrase').value = agent.closing_phrase || '';
+                    }
+                    if (document.getElementById('outbound-webhook')) {
+                        document.getElementById('outbound-webhook').value = agent.outbound_webhook_url || '';
+                    }
+
+                    // Update webhook URL and API key
+                    if (document.getElementById('webhook-url')) {
+                        document.getElementById('webhook-url').value = agent.ingress_webhook_url || '';
+                    }
+                    if (document.getElementById('api-key')) {
+                        document.getElementById('api-key').value = agent.public_api_key || '';
+                    }
+
+                    return agent;
+                } catch (error) {
+                    console.error('Erro ao carregar configurações:', error);
+                    showToast('Erro ao carregar configurações do agente', false);
+                }
+            }
+
+            // Webhook functions
+            function copyWebhookUrl() {
+                const webhookUrl = document.getElementById('webhook-url');
+                webhookUrl.select();
+                webhookUrl.setSelectionRange(0, 99999);
+                document.execCommand('copy');
+                showToast('URL do webhook copiada!');
+            }
+
+            async function testWebhookConnection() {
+                try {
+                    const result = await apiRequest('/agents/integrations/test-webhook', {
+                        method: 'POST'
+                    });
+
+                    if (result.success) {
+                        showToast('Conexão com webhook testada com sucesso!');
+                    } else {
+                        showToast('Falha ao conectar com webhook', false);
+                    }
+                } catch (error) {
+                    showToast('Erro ao testar webhook: ' + error.message, false);
+                }
+            }
+
+            // API key copy
+            function copyApiKey() {
+                const apiKey = document.getElementById('api-key');
+                apiKey.select();
+                apiKey.setSelectionRange(0, 99999);
+                document.execCommand('copy');
+                showToast('Chave da API copiada!');
+            }
+
+            // Connect service
+            async function connectService(service) {
+                try {
+                    // Get credentials from form inputs
+                    const credentials = {};
+
+                    if (service === 'whatsapp') {
+                        const token = document.querySelector(`input[placeholder="Insira seu token"]`);
+                        if (!token || !token.value) {
+                            showToast('Por favor, insira o token do WhatsApp', false);
+                            return;
+                        }
+                        credentials.token = token.value;
+                    } else if (service === 'telegram') {
+                        const botToken = document.querySelector(`input[placeholder="Insira o token do bot"]`);
+                        if (!botToken || !botToken.value) {
+                            showToast('Por favor, insira o token do bot Telegram', false);
+                            return;
+                        }
+                        credentials.bot_token = botToken.value;
+                    } else if (service === 'twilio') {
+                        const accountSid = document.querySelector(`input[placeholder="Insira seu Account SID"]`);
+                        const authToken = document.querySelector(`input[placeholder="Insira seu token"]`);
+                        if (!accountSid?.value || !authToken?.value) {
+                            showToast('Por favor, preencha todos os campos do Twilio', false);
+                            return;
+                        }
+                        credentials.account_sid = accountSid.value;
+                        credentials.auth_token = authToken.value;
+                    }
+
+                    const result = await apiRequest('/agents/integrations', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            service: service,
+                            credentials: credentials
+                        })
+                    });
+
+                    if (result.success) {
+                        showToast(`${service.charAt(0).toUpperCase() + service.slice(1)} conectado com sucesso!`);
+                    } else {
+                        showToast(`Falha ao conectar ${service}`, false);
+                    }
+                } catch (error) {
+                    showToast(`Erro ao conectar ${service}: ` + error.message, false);
+                }
+            }
+
+            // Change password
+            async function changePassword() {
+                try {
+                    const currentPassword = document.getElementById('current-password').value;
+                    const newPassword = document.getElementById('new-password').value;
+                    const confirmPassword = document.getElementById('confirm-password').value;
+
+                    if (!currentPassword || !newPassword || !confirmPassword) {
+                        showToast('Por favor, preencha todos os campos', false);
+                        return;
+                    }
+
+                    if (newPassword !== confirmPassword) {
+                        showToast('Nova senha e confirmação não coincidem', false);
+                        return;
+                    }
+
+                    const result = await apiRequest('/account/password', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            currentPassword: currentPassword,
+                            newPassword: newPassword
+                        })
+                    });
+
+                    if (result.success) {
+                        showToast('Senha alterada com sucesso!');
+                        document.getElementById('current-password').value = '';
+                        document.getElementById('new-password').value = '';
+                        document.getElementById('confirm-password').value = '';
+                    }
+                } catch (error) {
+                    showToast('Erro ao alterar senha: ' + error.message, false);
+                }
+            }
+
+            // Load dashboard data
+            async function loadDashboardData() {
+                try {
+                    const summary = await apiRequest('/reports/dashboard-summary');
+                    const activities = await apiRequest('/reports/recent-activity');
+
+                    if (summary.success) {
+                        // Update dashboard cards
+                        updateDashboardCards(summary.summary);
+                    }
+
+                    if (activities.success) {
+                        // Update recent activities
+                        updateRecentActivities(activities.activities);
+                    }
+                } catch (error) {
+                    console.error('Erro ao carregar dados do dashboard:', error);
+                }
+            }
+
+            function updateDashboardCards(data) {
+                // Update the dashboard cards with real data
+                console.log('Dashboard data:', data);
+            }
+
+            function updateRecentActivities(activities) {
+                // Update the recent activities list
+                console.log('Recent activities:', activities);
+            }
+
+            // Funções de autenticação e interface
+            function toggleUserMenu() {
+                const menu = document.getElementById('user-menu');
+                menu.classList.toggle('hidden');
+            }
+
+            function logout() {
+                if (confirm('Tem certeza que deseja sair?')) {
+                    authManager.logout();
+                }
+            }
+
+            // Atualizar dados do usuário na interface
+            function updateUserInterface() {
+                const user = authManager.getUser();
+                if (user) {
+                    // Atualizar nome do usuário
+                    const userNameElement = document.getElementById('user-name');
+                    if (userNameElement) {
+                        userNameElement.textContent = user.name;
+                    }
+
+                    // Atualizar iniciais no avatar
+                    const userInitialsElement = document.getElementById('user-initials');
+                    if (userInitialsElement) {
+                        const initials = user.name.split(' ')
+                            .map(name => name.charAt(0))
+                            .join('')
+                            .substring(0, 2)
+                            .toUpperCase();
+                        userInitialsElement.textContent = initials;
+                    }
+
+                    // Atualizar campos de formulário se existirem
+                    const accountNameField = document.getElementById('account-name');
+                    if (accountNameField) {
+                        accountNameField.value = user.name;
+                    }
+
+                    const accountEmailField = document.getElementById('account-email');
+                    if (accountEmailField) {
+                        accountEmailField.value = user.email;
+                    }
+                }
+            }
+
+            // Fechar menu do usuário ao clicar fora
+            document.addEventListener('click', function (event) {
+                const userMenu = document.getElementById('user-menu');
+                const userSection = event.target.closest('.relative');
+
+                if (!userSection && userMenu) {
+                    userMenu.classList.add('hidden');
+                }
+            });
+
+            // Login simulation (replace with real auth)
+            async function simulateLogin() {
+                try {
+                    // In production, get these from a login form
+                    const result = await apiRequest('/auth/login', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            email: 'demo@example.com',
+                            password: 'demo123'
+                        })
+                    });
+
+                    if (result.success) {
+                        setAuthToken(result.token);
+                        showToast('Login realizado com sucesso!');
+                        await loadAgentConfig();
+                        await loadDashboardData();
+                    }
+                } catch (error) {
+                    console.error('Login error:', error);
+                    showToast('Erro no login: ' + error.message, false);
+                }
+            }
+
+            // Inicialização quando a página carrega
+            document.addEventListener('DOMContentLoaded', async function () {
+                // A verificação de autenticação já é feita pelo auth.js
+                // Aqui só atualizamos a interface se o usuário estiver logado
+                if (authManager.isAuthenticated()) {
+                    updateUserInterface();
+                    await loadAgentConfig();
+                    await loadDashboardData();
+                }
+            });
+
+            // Auto-login for demo (remove in production)
+            // Comentado pois agora usamos o sistema de autenticação real
+            /*
+            document.addEventListener('DOMContentLoaded', function () {
+                // Try to load data if token exists
+                if (getAuthToken()) {
+                    loadAgentConfig();
+                    loadDashboardData();
+                }
+            });
+            */
+        </script>
+    </div> <!-- End of app-content -->
+</body>
+
+</html>

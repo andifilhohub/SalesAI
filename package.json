@@ -1,0 +1,32 @@
+{
+    "name": "salesai-api-tester",
+    "version": "1.0.0",
+    "description": "Script de teste para todos os endpoints da SalesAI API",
+    "main": "test-api.js",
+    "scripts": {
+        "test": "node test-api.js",
+        "test:quick": "node quick-test.js",
+        "test:server": "cd backend && NODE_ENV=test node src/app.js",
+        "test:full": "./run-tests.sh",
+        "install-deps": "npm install && cd backend && npm install",
+        "test:auth": "node -e \"require('./test-api.js').testAuthEndpoints()\"",
+        "test:account": "node -e \"require('./test-api.js').testAccountEndpoints()\"",
+        "test:agent": "node -e \"require('./test-api.js').testAgentEndpoints()\"",
+        "test:conversations": "node -e \"require('./test-api.js').testConversationEndpoints()\"",
+        "test:reports": "node -e \"require('./test-api.js').testReportEndpoints()\"",
+        "test:webhook": "node -e \"require('./test-api.js').testWebhookEndpoints()\"",
+        "test:public": "node -e \"require('./test-api.js').testPublicApiEndpoints()\""
+    },
+    "dependencies": {
+        "axios": "^1.11.0",
+        "form-data": "^4.0.4"
+    },
+    "keywords": [
+        "api",
+        "test",
+        "salesai",
+        "automation"
+    ],
+    "author": "SalesAI Team",
+    "license": "MIT"
+}
