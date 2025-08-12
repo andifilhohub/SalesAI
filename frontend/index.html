@@ -714,7 +714,8 @@
                                             </button>
                                         </div>
                                         <p class="text-xs text-gray-500 mt-1">Mantenha esta chave em segredo. <a
-                                                href="#" class="text-blue-500">Gerar nova chave</a></p>
+                                                href="#" onclick="regenerateApiKey()" class="text-blue-500">Gerar nova
+                                                chave</a></p>
                                     </div>
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Exemplo de
@@ -1088,7 +1089,7 @@
                                         </div>
                                     </div>
                                     <div class="flex justify-end">
-                                        <button type="button"
+                                        <button type="button" onclick="saveAccountChanges()"
                                             class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
                                             Salvar Alterações
                                         </button>
@@ -1321,6 +1322,81 @@
                     'account': 'Configurações da Conta'
                 };
                 document.querySelector('header h1').textContent = titles[section];
+
+                // Load section-specific data
+                if (section === 'conversations') {
+                    loadConversationsData();
+                } else if (section === 'reports') {
+                    loadDashboardData();
+                } else if (section === 'account') {
+                    loadAccountData();
+                }
+            }
+
+            // Load conversations data
+            async function loadConversationsData() {
+                try {
+                    const conversations = await apiRequest('/conversations');
+                    if (conversations && Array.isArray(conversations)) {
+                        updateConversationsList(conversations);
+                    }
+                } catch (error) {
+                    console.error('Erro ao carregar conversas:', error);
+                }
+            }
+
+            // Update conversations list in UI
+            function updateConversationsList(conversations) {
+                const conversationsContainer = document.querySelector('#conversations-section .space-y-4');
+                if (!conversationsContainer) return;
+
+                // Clear existing content
+                conversationsContainer.innerHTML = '';
+
+                if (conversations.length === 0) {
+                    conversationsContainer.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-comments text-4xl mb-4"></i>
+                            <p>Nenhuma conversa encontrada</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Add conversations
+                conversations.forEach(conversation => {
+                    const conversationElement = document.createElement('div');
+                    conversationElement.className = 'bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow cursor-pointer';
+                    conversationElement.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-user text-blue-600"></i>
+                                </div>
+                                <div>
+                                    <h3 class="font-medium text-gray-900">${conversation.customer_identifier}</h3>
+                                    <p class="text-sm text-gray-500">Canal: ${conversation.channel}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${conversation.status === 'open' ? 'bg-green-100 text-green-800' :
+                            conversation.status === 'closed' ? 'bg-gray-100 text-gray-800' :
+                                conversation.status === 'pending_ai' ? 'bg-yellow-100 text-yellow-800' :
+                                    'bg-blue-100 text-blue-800'
+                        }">
+                                    ${conversation.status === 'open' ? 'Aberta' :
+                            conversation.status === 'closed' ? 'Fechada' :
+                                conversation.status === 'pending_ai' ? 'Aguardando IA' :
+                                    'Aguardando Humano'}
+                                </span>
+                                <p class="text-xs text-gray-500 mt-1">
+                                    ${new Date(conversation.last_activity_at).toLocaleDateString('pt-BR')}
+                                </p>
+                            </div>
+                        </div>
+                    `;
+                    conversationsContainer.appendChild(conversationElement);
+                });
             }
 
             // Toggle sidebar
@@ -1342,6 +1418,91 @@
                 setTimeout(() => {
                     toast.classList.add('hidden');
                 }, 3000);
+            }
+
+            // Save account changes
+            async function saveAccountChanges() {
+                const nameInput = document.getElementById('account-name');
+                const emailInput = document.getElementById('account-email');
+
+                if (!nameInput?.value || !emailInput?.value) {
+                    showToast('Por favor, preencha todos os campos obrigatórios', false);
+                    return;
+                }
+
+                try {
+                    const result = await apiRequest('/account', {
+                        method: 'PUT',
+                        body: JSON.stringify({
+                            name: nameInput.value.trim(),
+                            email: emailInput.value.trim()
+                        })
+                    });
+
+                    if (result) {
+                        // Update user data in auth manager
+                        authManager.updateUser({
+                            name: nameInput.value.trim(),
+                            email: emailInput.value.trim()
+                        });
+
+                        updateUserInterface(); // Update UI with new data
+                        showToast('Dados da conta atualizados com sucesso!');
+                    } else {
+                        showToast('Erro ao atualizar dados da conta', false);
+                    }
+                } catch (error) {
+                    console.error('Erro ao salvar alterações da conta:', error);
+                    showToast('Erro ao atualizar dados da conta', false);
+                }
+            }
+
+            // Load account data
+            async function loadAccountData() {
+                try {
+                    const accountData = await apiRequest('/account');
+                    if (accountData) {
+                        updateAccountForm(accountData);
+                    }
+                } catch (error) {
+                    console.error('Erro ao carregar dados da conta:', error);
+                }
+            }
+
+            // Update account form with data
+            function updateAccountForm(data) {
+                const nameInput = document.getElementById('account-name');
+                const emailInput = document.getElementById('account-email');
+
+                if (nameInput && data.name) {
+                    nameInput.value = data.name;
+                }
+                if (emailInput && data.email) {
+                    emailInput.value = data.email;
+                }
+            }
+
+            // Regenerate API key
+            async function regenerateApiKey() {
+                if (!confirm('Tem certeza que deseja gerar uma nova chave de API? A chave atual será invalidada.')) {
+                    return;
+                }
+
+                try {
+                    const result = await apiRequest('/agents/regenerate-api-key', {
+                        method: 'POST'
+                    });
+
+                    if (result && result.api_key) {
+                        document.getElementById('api-key').value = result.api_key;
+                        showToast('Nova chave de API gerada com sucesso!');
+                    } else {
+                        showToast('Erro ao gerar nova chave de API', false);
+                    }
+                } catch (error) {
+                    console.error('Erro ao regenerar API key:', error);
+                    showToast('Erro ao gerar nova chave de API', false);
+                }
             }
 
             // API Configuration
@@ -1397,7 +1558,7 @@
                         tone: document.getElementById('agent-tone')?.value || 'supportive',
                         opening_phrase: document.getElementById('opening-phrase')?.value || '',
                         closing_phrase: document.getElementById('closing-phrase')?.value || '',
-                        outbound_webhook_url: document.getElementById('outbound-webhook')?.value || ''
+                        outbound_webhook_url: document.getElementById('outbound-webhook')?.value || null
                     };
 
                     const result = await apiRequest('/agents', {
@@ -1475,11 +1636,18 @@
 
             async function testWebhookConnection() {
                 try {
-                    const result = await apiRequest('/agents/integrations/test-webhook', {
-                        method: 'POST'
+                    // Primeiro vamos buscar o agente para obter o webhook path
+                    const agentData = await apiRequest('/agents');
+                    if (!agentData.ingress_webhook_url_path) {
+                        showToast('Webhook não configurado', false);
+                        return;
+                    }
+
+                    const result = await apiRequest(`/webhook/ingress/${agentData.ingress_webhook_url_path}`, {
+                        method: 'GET'
                     });
 
-                    if (result.success) {
+                    if (result) {
                         showToast('Conexão com webhook testada com sucesso!');
                     } else {
                         showToast('Falha ao conectar com webhook', false);
@@ -1529,15 +1697,21 @@
                         credentials.auth_token = authToken.value;
                     }
 
-                    const result = await apiRequest('/agents/integrations', {
-                        method: 'POST',
+                    // Como não há endpoint específico para integrações, vamos atualizar as configurações do agente
+                    const result = await apiRequest('/agents', {
+                        method: 'PUT',
                         body: JSON.stringify({
-                            service: service,
-                            credentials: credentials
+                            integrations: {
+                                [service]: {
+                                    enabled: true,
+                                    credentials: credentials,
+                                    connected_at: new Date().toISOString()
+                                }
+                            }
                         })
                     });
 
-                    if (result.success) {
+                    if (result) {
                         showToast(`${service.charAt(0).toUpperCase() + service.slice(1)} conectado com sucesso!`);
                     } else {
                         showToast(`Falha ao conectar ${service}`, false);

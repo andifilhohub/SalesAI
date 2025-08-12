@@ -88,7 +88,21 @@ const Agent = sequelize.define('Agent', {
     type: DataTypes.STRING,
     allowNull: true,
     validate: {
-      isUrl: true
+      isUrl: {
+        args: true,
+        msg: 'URL do webhook deve ser uma URL válida'
+      },
+      customValidator(value) {
+        // Permite null, undefined ou string vazia
+        if (!value || value === '') {
+          return;
+        }
+        // Se tem valor, deve ser uma URL válida
+        const urlRegex = /^https?:\/\/.+/;
+        if (!urlRegex.test(value)) {
+          throw new Error('URL do webhook deve ser uma URL válida (http:// ou https://)');
+        }
+      }
     }
   },
   is_active: {

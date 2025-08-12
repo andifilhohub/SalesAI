@@ -119,7 +119,12 @@ class AgentController {
       // Atualizar campos permitidos
       Object.keys(updateData).forEach(key => {
         if (updateData[key] !== undefined) {
-          agent[key] = updateData[key];
+          // Converter strings vazias para null em campos de URL
+          if ((key === 'outbound_webhook_url' || key === 'avatar_url') && updateData[key] === '') {
+            agent[key] = null;
+          } else {
+            agent[key] = updateData[key];
+          }
         }
       });
 
